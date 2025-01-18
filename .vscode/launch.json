@@ -1,0 +1,101 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'chat_practise'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=chat_practise"
+                ],
+                "filter": {
+                    "name": "chat_practise",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'chat_practise'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=chat_practise",
+                    "--package=chat_practise"
+                ],
+                "filter": {
+                    "name": "chat_practise",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'chat_practise'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=chat_practise",
+                    "--package=chat_practise"
+                ],
+                "filter": {
+                    "name": "chat_practise",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'drop'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=drop",
+                    "--package=chat_practise"
+                ],
+                "filter": {
+                    "name": "drop",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'drop'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=drop",
+                    "--package=chat_practise"
+                ],
+                "filter": {
+                    "name": "drop",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
