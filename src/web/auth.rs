@@ -11,7 +11,7 @@ use actix_web::dev::Payload;
 use std::ops::Deref;
 use log::info;
 
-use crate::jwt::{validate_jwt, Claims};
+use crate::web::jwt::{validate_jwt, Claims};
 
 pub struct AuthMiddleware {
     pub whitelist: Vec<String>,
