@@ -17,5 +17,5 @@ log = "0.4.25"
 serde = "1.0.217"
 serde_json = "1.0.135"
 sqlx = {version = "0.8.3", features = ["runtime-tokio", "mysql", "chrono"]}
-tokio = "1.43.0"
-tokio-util = "0.7.13"
+tokio = { version = "1.43.0", features = ["full"] }
+tokio-util = {version = "0.7.13", features = ["codec"]}

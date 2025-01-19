@@ -1,3 +1,5 @@
+use std::env;
+
 use actix_web::{get, web::Data, App, HttpServer};
 use chat_practise::{chat::chatserver::start_chat_server, routers::config_router, web::{auth::AuthMiddleware, common::AppState}};
 use sqlx::mysql::MySqlPoolOptions;
@@ -9,15 +11,18 @@ async fn greet() -> String {
 
 #[actix_web::main] // or #[tokio::main]
 async fn main() -> std::io::Result<()> {
-
+    dotenv::dotenv().ok();
+    let url = env::var("DATABASE_URL").expect("ENV DATABASE_URL ERROR");
+    let chat_port: u16 = env::var("CHAT_PORT").unwrap_or("8081".to_string()).parse().expect("ENV CHAT_PORT ERROR");
+    let web_port: u16 = env::var("WEB_PORT").unwrap_or("8080".to_string()).parse().expect("ENV WEB_PORT ERROR");
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("trace"));
 
     let pool = MySqlPoolOptions::new()
     .max_connections(5)
-    .connect("mysql://root:jiangkunoa@192.168.1.17:3306/chat")
+    .connect(url.as_str())
     .await
     .unwrap();
-    let chat_state = start_chat_server(8081, pool.clone()).await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let chat_state = start_chat_server(chat_port, pool.clone()).await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
     HttpServer::new(move || {
         App::new()
@@ -28,7 +33,7 @@ async fn main() -> std::io::Result<()> {
         })
         .configure(config_router)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("127.0.0.1", web_port))?
     .run()
     .await
 }
