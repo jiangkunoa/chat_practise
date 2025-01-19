@@ -1,5 +1,5 @@
 use actix_web::{get, web::Data, App, HttpServer};
-use chat_practise::{user::{login, register}, AppState};
+use chat_practise::{auth::AuthMiddleware, user::{login, register, update_password}, AppState};
 use sqlx::mysql::MySqlPoolOptions;
 
 #[get("/")]
@@ -22,8 +22,12 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
         .app_data(Data::new(AppState { pool: pool.clone() }))
+        .wrap(AuthMiddleware {
+            whitelist:vec!["/login".to_owned(), "/register".to_owned()]
+        })
         .service(register)
         .service(login)
+        .service(update_password)
     })
     .bind(("127.0.0.1", 8080))?
     .run()
