@@ -1,14 +1,14 @@
-use std::{collections::HashMap, net::SocketAddr, sync::{Arc, RwLock}};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use futures::{SinkExt, StreamExt};
 use log::info;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::{net::{TcpListener, TcpStream}, sync::RwLock};
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
-use crate::{dao::user_dao, web::jwt};
+use crate::{chat::chatcmd::{hand_msg, ChatCammand}, dao::user_dao, web::jwt};
 
 type ConnSender = tokio::sync::mpsc::Sender<String>;
 type ConnMap = Arc<RwLock<HashMap<u64, ConnSender>>>;
@@ -74,9 +74,9 @@ async fn hand_connect(stream: TcpStream, state: Arc<ChatState>, addr: SocketAddr
     }
     info!("auth user success:{}, {}", user.username, addr);
     let (sender, receiver) = tokio::sync::mpsc::channel::<String>(10);
-    state.conn_map.write().expect("system lock error")
-        .insert(user.id, sender.clone());
-    sender.send("success".to_string()).await?;
+    state.conn_map.write().await
+        .insert(user.id, sender);
+
     tokio::spawn(async move {
         let mut receiver = receiver;
         let mut frame_writer = FramedWrite::new(write, LengthDelimitedCodec::new());
@@ -92,12 +92,19 @@ async fn hand_connect(stream: TcpStream, state: Arc<ChatState>, addr: SocketAddr
     loop {
         if let Some(data) = framed.next().await {
             let logic_msg = String::from_utf8(data?.to_vec())?;
-            info!("recv msg:{}", logic_msg);
+            let cmd = serde_json::from_str::<ChatCammand>(&logic_msg);
+            match cmd {
+                Ok(chatcmd) => {
+                    hand_msg(state.clone(), chatcmd, &user).await;
+                },
+                Err(e) => {
+                    info!("recv msg error:{}, err:{:?}", logic_msg, e);
+                },
+            }
         } else {
             info!("close connect:{}, {}", user.username, addr);
-            state.conn_map.write().expect("system lock error").remove(&user.id);
+            state.conn_map.write().await.remove(&user.id);
             return Err(anyhow::anyhow!("read line from stream error"));
         }
     }
 }
-
