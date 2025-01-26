@@ -27,9 +27,11 @@ pub async fn register(state: web::Data<AppState>, user: web::Json<ReqRegister>) 
 
 async fn _register(pool: &MySqlPool, user: ReqRegister) -> Result<()> {
     let old = get_user_by_name(pool, &user.username).await;
+    info!("old: {:?}", old);
     if let Some(_) = old {
         return Err(anyhow::anyhow!("用户名已存在"));
     }
+    
     let password_hash = password_hash(&user.password)?;
     info!("password: {}, password_hash: {}", user.password, password_hash);
     insert_user(pool, &user.username, password_hash.as_str()).await?;

@@ -75,8 +75,8 @@ async fn hand_connect(stream: TcpStream, state: Arc<ChatState>, addr: SocketAddr
     info!("auth user success:{}, {}", user.username, addr);
     let (sender, receiver) = tokio::sync::mpsc::channel::<String>(10);
     state.conn_map.write().expect("system lock error")
-        .insert(user.id, sender);
-
+        .insert(user.id, sender.clone());
+    sender.send("success".to_string()).await?;
     tokio::spawn(async move {
         let mut receiver = receiver;
         let mut frame_writer = FramedWrite::new(write, LengthDelimitedCodec::new());

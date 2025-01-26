@@ -20,12 +20,13 @@ pub async fn get_user_by_name(pool: &MySqlPool, username: &str) -> Option<User> 
         .ok()
 }
 
-pub async fn insert_user(pool: &MySqlPool, username: &str, password_hash: &str) -> Result<User> {
-    sqlx::query_as::<_, User>("INSERT INTO users (username, password_hash) VALUES (?, ?)")
+pub async fn insert_user(pool: &MySqlPool, username: &str, password_hash: &str) -> Result<()> {
+    sqlx::query("INSERT INTO users (username, password_hash) VALUES (?, ?)")
         .bind(username)
         .bind(password_hash)
-        .fetch_one(pool)
+        .execute(pool)
         .await
+        .map(|_| ())
         .map_err(|e| e.into())
 }
 
