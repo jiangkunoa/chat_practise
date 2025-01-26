@@ -21,9 +21,9 @@ struct Rooms;
 
 #[repr(i32)]
 pub enum RoomType {
-    Private,
-    Group,
-    Public,
+    Private = 1,
+    Group = 2,
+    Public = 3,
 }
 
 pub async fn hand_msg(state: Arc<ChatState>, msg: ChatCammand, user: &User) {
@@ -44,16 +44,7 @@ struct RoomInfo {
 }
 
 async fn rooms(state: Arc<ChatState>, _msg: ChatCammand, user: &User) -> Result<()> {
-    let mut rooms = get_rooms_by_member(&state.pool, user.id.to_string().as_str()).await?;
-    let mut public_rooms = get_rooms_by_type(&state.pool, RoomType::Public as i32).await?;
-    rooms.append(&mut public_rooms);
-    let info = RoomInfo { rooms };
-    let rsp = ChatCammand {
-        cmd: "RspRooms".to_string(),
-        data: serde_json::to_string(&info)?,
-    };
-    state.conn_map.write().await.get_mut(&user.id).unwrap().send(serde_json::to_string(&rsp)?).await?;
-    Ok(())
+    push_rooms(state, user).await
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -81,5 +72,18 @@ async fn send_msg(state: Arc<ChatState>, msg: ChatCammand, user: &User) -> Resul
             }
         }
     });
+    Ok(())
+}
+
+pub async fn push_rooms(state: Arc<ChatState>, user: &User) -> Result<()> {
+    let mut rooms = get_rooms_by_member(&state.pool, user.id.to_string().as_str()).await?;
+    let mut public_rooms = get_rooms_by_type(&state.pool, RoomType::Public as i32).await?;
+    rooms.append(&mut public_rooms);
+    let info = RoomInfo { rooms };
+    let rsp = ChatCammand {
+        cmd: "RspRooms".to_string(),
+        data: serde_json::to_string(&info)?,
+    };
+    state.conn_map.write().await.get_mut(&user.id).unwrap().send(serde_json::to_string(&rsp)?).await?;
     Ok(())
 }

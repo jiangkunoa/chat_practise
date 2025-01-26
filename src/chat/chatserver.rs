@@ -8,7 +8,7 @@ use sqlx::{MySql, Pool};
 use tokio::{net::{TcpListener, TcpStream}, sync::RwLock};
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
-use crate::{chat::chatcmd::{hand_msg, ChatCammand}, dao::user_dao, web::jwt};
+use crate::{chat::chatcmd::{hand_msg, push_rooms, ChatCammand}, dao::user_dao, web::jwt};
 
 type ConnSender = tokio::sync::mpsc::Sender<String>;
 type ConnMap = Arc<RwLock<HashMap<u64, ConnSender>>>;
@@ -76,7 +76,7 @@ async fn hand_connect(stream: TcpStream, state: Arc<ChatState>, addr: SocketAddr
     let (sender, receiver) = tokio::sync::mpsc::channel::<String>(10);
     state.conn_map.write().await
         .insert(user.id, sender);
-
+    push_rooms(state.clone(), &user).await?;
     tokio::spawn(async move {
         let mut receiver = receiver;
         let mut frame_writer = FramedWrite::new(write, LengthDelimitedCodec::new());

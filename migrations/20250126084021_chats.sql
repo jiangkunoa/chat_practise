@@ -1,4 +1,5 @@
 -- Add migration script here
+drop table if exists rooms;
 CREATE TABLE rooms (
     id int PRIMARY KEY AUTO_INCREMENT,
     room_type int NOT NULL,
@@ -7,7 +8,7 @@ CREATE TABLE rooms (
 );
 
 
-
+drop table if exists chat_msgs;
 CREATE TABLE chat_msgs (
     id int PRIMARY KEY AUTO_INCREMENT,
     room_id int NOT NULL,
@@ -15,3 +16,6 @@ CREATE TABLE chat_msgs (
     sender BIGINT,
     send_time VARCHAR(50)
 );
+
+
+insert into rooms (room_type, room_name, members) values (3, '公共', '[]');
