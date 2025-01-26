@@ -8,7 +8,7 @@ use sqlx::{MySql, Pool};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
-use crate::{dao::user_dao, web::jwt};
+use crate::{chat::chatcmd::{hand_msg, ChatCammand}, dao::user_dao, web::jwt};
 
 type ConnSender = tokio::sync::mpsc::Sender<String>;
 type ConnMap = Arc<RwLock<HashMap<u64, ConnSender>>>;
@@ -92,7 +92,15 @@ async fn hand_connect(stream: TcpStream, state: Arc<ChatState>, addr: SocketAddr
     loop {
         if let Some(data) = framed.next().await {
             let logic_msg = String::from_utf8(data?.to_vec())?;
-            info!("recv msg:{}", logic_msg);
+            let cmd = serde_json::from_str::<ChatCammand>(&logic_msg);
+            match cmd {
+                Ok(chatcmd) => {
+                    hand_msg(state.clone(), chatcmd, &user);
+                },
+                Err(e) => {
+                    info!("recv msg error:{}, err:{:?}", logic_msg, e);
+                },
+            }
         } else {
             info!("close connect:{}, {}", user.username, addr);
             state.conn_map.write().expect("system lock error").remove(&user.id);
@@ -100,4 +108,3 @@ async fn hand_connect(stream: TcpStream, state: Arc<ChatState>, addr: SocketAddr
         }
     }
 }
-
