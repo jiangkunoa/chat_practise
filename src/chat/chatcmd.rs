@@ -1,10 +1,10 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use anyhow::{anyhow, Ok, Result};
 
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 
-use crate::{dao::{chatmsg_dao::{create_chat_msg, get_chat_msg, get_chat_msg_limit}, room_dao::{self, get_room, get_rooms_by_member, get_rooms_by_type, update_room_members}}, models::{chatmsg::ChatMessage, room::Room, user::User}};
+use crate::{dao::{chatmsg_dao::{create_chat_msg, get_chat_msg, get_chat_msg_limit}, room_dao::{self, get_room, get_rooms_by_member, get_rooms_by_type, update_room_members}, user_dao::get_user_in_id}, models::{chatmsg::ChatMessage, room::Room, user::User}};
 
 use super::chatserver::ChatState;
 
@@ -91,8 +91,14 @@ struct ReqRoomMsgs {
 #[derive(Debug, Serialize, Deserialize)]
 struct RspRoomMsgs {
     room_id: i32,
-    msgs: Vec<ChatMessage>
+    msgs: Vec<ClientChatMsg>,
 }
+#[derive(Debug, Serialize, Deserialize)]
+struct ClientChatMsg {
+    msg: ChatMessage,
+    user_name: String
+}
+
 async fn room_msgs(state: Arc<ChatState>, msg: ChatCammand, user: &User) -> Result<()> {
     let req: ReqRoomMsgs = serde_json::from_str(&msg.data)?;
     let msgs = match req.last_id {
@@ -103,9 +109,28 @@ async fn room_msgs(state: Arc<ChatState>, msg: ChatCammand, user: &User) -> Resu
             get_chat_msg(&state.pool, req.room_id).await?
         },
     };
+    let ids: Vec<u64> = msgs.iter().map(|msg| msg.sender).collect();
+    let users: HashMap<u64, User> = get_user_in_id(&state.pool, &ids).await?.into_iter()
+    .map(|user| (user.id, user)) // 使用user.id做key
+    .collect();
+    let mut chat_msg_list = vec![];
+    for chatmsg in &msgs {
+        let mybe_user = users.get(&chatmsg.sender);
+        if let Some(user) = mybe_user {
+            chat_msg_list.push(ClientChatMsg {
+                msg: chatmsg.clone(),
+                user_name: user.username.clone(),
+            });
+        } else {
+            chat_msg_list.push(ClientChatMsg {
+                msg: chatmsg.clone(),
+                user_name: "none".to_string(),
+            });
+        }
+    }
     let rsp = ChatCammand {
         cmd: "RspRoomMsgs".to_string(),
-        data: serde_json::to_string(&RspRoomMsgs { room_id: req.room_id, msgs })?,
+        data: serde_json::to_string(&RspRoomMsgs { room_id: req.room_id, msgs: chat_msg_list })?,
     };
     state.conn_map.write().await.get_mut(&user.id).unwrap().send(serde_json::to_string(&rsp)?).await?;
     Ok(())

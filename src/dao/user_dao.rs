@@ -20,6 +20,20 @@ pub async fn get_user_by_name(pool: &MySqlPool, username: &str) -> Option<User> 
         .ok()
 }
 
+pub async fn get_user_in_id(pool: &MySqlPool, ids: &Vec<u64>) -> Result<Vec<User>> {
+    let query = format!(
+        "SELECT * FROM users WHERE id IN ({})",
+        ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ")
+    );
+    let mut query = sqlx::query_as::<_, User>(&query);
+    for ele in ids {
+        query = query.bind(ele);
+    }
+    query.fetch_all(pool)
+    .await
+    .map_err(|e| e.into())
+}
+
 pub async fn insert_user(pool: &MySqlPool, username: &str, password_hash: &str) -> Result<()> {
     sqlx::query("INSERT INTO users (username, password_hash) VALUES (?, ?)")
         .bind(username)
