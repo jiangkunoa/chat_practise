@@ -1,10 +1,10 @@
 use std::sync::Arc;
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Ok, Result};
 
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 
-use crate::{dao::{chatmsg_dao::create_chat_msg, room_dao::{get_room, get_rooms_by_member, get_rooms_by_type}}, models::{room::Room, user::User}};
+use crate::{dao::{chatmsg_dao::{create_chat_msg, get_chat_msg, get_chat_msg_limit}, room_dao::{self, get_room, get_rooms_by_member, get_rooms_by_type, update_room_members}}, models::{chatmsg::ChatMessage, room::Room, user::User}};
 
 use super::chatserver::ChatState;
 
@@ -30,6 +30,9 @@ pub async fn hand_msg(state: Arc<ChatState>, msg: ChatCammand, user: &User) {
     info!("hand msg:{:?}", msg);
     let r = match msg.cmd.as_str() {
         "Rooms" => rooms(state, msg, user).await,
+        "CreateRoom" => create_room(state, msg, user).await,
+        "Enter" => enter(state, msg, user).await,
+        "RoomMsgs" => room_msgs(state, msg, user).await,
         "SendMsg" => send_msg(state, msg, user).await,
         _ => Err(anyhow!(format!("unknown cmd:{:?}", msg))),
     };
@@ -45,6 +48,67 @@ struct RoomInfo {
 
 async fn rooms(state: Arc<ChatState>, _msg: ChatCammand, user: &User) -> Result<()> {
     push_rooms(state, user).await
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ReqCreateRoom {
+    room_type: i32,
+    room_name: String,
+    members: Vec<u64>
+}
+
+async fn create_room(state: Arc<ChatState>, msg: ChatCammand, user: &User) -> Result<()> {
+    let mut req: ReqCreateRoom = serde_json::from_str(&msg.data)?;
+    if !req.members.contains(&user.id) {
+        req.members.push(user.id);
+    }
+    let _ = room_dao::create_room(&state.pool, req.room_type, &req.room_name, &req.members).await?;
+    push_rooms(state, user).await
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ReqEnter {
+    room_id: i32
+}
+
+async fn enter(state: Arc<ChatState>, msg: ChatCammand, user: &User) -> Result<()> {
+    let req: ReqEnter = serde_json::from_str(&msg.data)?;
+    let room = get_room(&state.pool, req.room_id).await.ok_or_else(|| anyhow!("room not found"))?;
+    let mut members: Vec<u64> = serde_json::from_str(&room.members)?;
+    if !members.contains(&user.id) {
+        members.push(user.id);
+        update_room_members(&state.pool, room.id, members).await?;
+    }
+    push_rooms(state, user).await?;
+    Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ReqRoomMsgs {
+    room_id: i32,
+    last_id: Option<i32>
+}
+#[derive(Debug, Serialize, Deserialize)]
+struct RspRoomMsgs {
+    room_id: i32,
+    msgs: Vec<ChatMessage>
+}
+async fn room_msgs(state: Arc<ChatState>, msg: ChatCammand, user: &User) -> Result<()> {
+    let req: ReqRoomMsgs = serde_json::from_str(&msg.data)?;
+    let msgs = match req.last_id {
+        Some(last_id) => {
+            get_chat_msg_limit(&state.pool, req.room_id, last_id).await?
+        },
+        None => {
+            get_chat_msg(&state.pool, req.room_id).await?
+        },
+    };
+    let rsp = ChatCammand {
+        cmd: "RspRoomMsgs".to_string(),
+        data: serde_json::to_string(&RspRoomMsgs { room_id: req.room_id, msgs })?,
+    };
+    state.conn_map.write().await.get_mut(&user.id).unwrap().send(serde_json::to_string(&rsp)?).await?;
+    Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize)]

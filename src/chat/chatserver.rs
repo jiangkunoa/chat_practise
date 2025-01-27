@@ -2,7 +2,7 @@ use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use futures::{SinkExt, StreamExt};
-use log::info;
+use log::{info, error};
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
 use tokio::{net::{TcpListener, TcpStream}, sync::RwLock};
@@ -37,7 +37,7 @@ pub async fn start_chat_server(port: u16, pool: Pool<MySql>) -> Result<Arc<ChatS
                         info!("hand finish {}", addr);
                     }
                     Err(e) => {
-                        info!("hand connect error:{}", e);
+                        error!("hand connect error:{}", e);
                     }
                 }
             });
@@ -69,7 +69,7 @@ async fn hand_connect(stream: TcpStream, state: Arc<ChatState>, addr: SocketAddr
         let claims = jwt::validate_jwt(auth_msg.as_str())?;
         user = user_dao::get_user(&state.pool, claims.sub).await.ok_or_else(|| anyhow::anyhow!("user not found"))?;
     } else {
-        info!("auth user error2 {}", addr);
+        error!("auth user error2 {}", addr);
         return Err(anyhow::anyhow!("read line from stream error"));
     }
     info!("auth user success:{}, {}", user.username, addr);

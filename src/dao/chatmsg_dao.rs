@@ -13,8 +13,16 @@
  use sqlx::{types::chrono, MySql, Pool};
  
  pub async fn get_chat_msg(pool: &Pool<MySql>, room_id: i32) -> Result<Vec<ChatMessage>, sqlx::Error> {
-     sqlx::query_as::<_, ChatMessage>("SELECT * FROM chat_msgs WHERE room_id = ?")
+     sqlx::query_as::<_, ChatMessage>("SELECT * FROM chat_msgs WHERE room_id = ? ORDER BY send_time DESC LIMIT 20")
          .bind(room_id)
+         .fetch_all(pool)
+         .await
+ }
+
+ pub async fn get_chat_msg_limit(pool: &Pool<MySql>, room_id: i32, last_id: i32) -> Result<Vec<ChatMessage>, sqlx::Error> {
+     sqlx::query_as::<_, ChatMessage>("SELECT * FROM chat_msgs WHERE room_id = ? AND id < ? ORDER BY send_time DESC LIMIT 20")
+         .bind(room_id)
+         .bind(last_id)
          .fetch_all(pool)
          .await
  }

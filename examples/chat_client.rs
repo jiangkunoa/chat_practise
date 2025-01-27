@@ -3,7 +3,7 @@ use std::env;
 use anyhow::Result;
 use futures::{SinkExt, StreamExt};
 use log::info;
-use tokio::net::TcpStream;
+use tokio::{io::{stdin, AsyncReadExt}, net::TcpStream};
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
 
@@ -27,8 +27,10 @@ async fn main() -> Result<()>{
     tokio::spawn(async move {
         let mut receiver = receiver;
         while let Some(msg) = receiver.recv().await {
-            match frame_writer.send(bytes::Bytes::from(msg)).await {
-                Ok(_) => {}
+            match frame_writer.send(bytes::Bytes::from(msg.clone())).await {
+                Ok(_) => {
+                    info!("send msg success:{}", msg);
+                }
                 Err(e) => {
                     info!("send msg error:{}", e);
                 }
@@ -36,15 +38,38 @@ async fn main() -> Result<()>{
         }
     });
     // _sender.send("123".to_string()).await?;
+    tokio::spawn(async move {
+        loop {
+            match framed.next().await {
+                Some(data) => {
+                    let logic_msg = String::from_utf8(data.unwrap().to_vec()).unwrap();
+                    info!("recv msg:{}", logic_msg);
+                },
+                None => {
+                    println!("read line from stream error");
+                },
+            }
+        }
+    });
     loop {
-        match framed.next().await {
-            Some(data) => {
-                let logic_msg = String::from_utf8(data?.to_vec())?;
-                info!("recv msg:{}", logic_msg);
+        //读取控制台输入
+        let mut input = String::new();
+        info!("Please input cmd:");
+        input.clear();
+        stdin().read_to_string(&mut input).await.expect("read input error");
+        //解析input为vec
+        let input_vec: Vec<&str> = input.split(' ').collect();
+        let cmd = input_vec.iter().next().ok_or_else(|| anyhow::anyhow!("cmd error"))?;
+        match cmd.to_string().as_str() {
+            "exit" => {
+                info!("exit");
+                break;
             },
-            None => {
-                return Err(anyhow::anyhow!("read line from stream error"));
-            },
+            _ => {
+                info!("unknown cmd:{}", cmd);
+            }
         }
     }
+    Ok(())
+    
 }

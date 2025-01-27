@@ -20,7 +20,7 @@ pub async fn get_room_by_name(pool: &MySqlPool, room_name: &str) -> Option<Room>
         .ok()
 }
 
-pub async fn create_room(pool: &MySqlPool, room_type: i32, room_name: &str, members: Vec<u64>) -> Result<Room> {
+pub async fn create_room(pool: &MySqlPool, room_type: i32, room_name: &str, members: &Vec<u64>) -> Result<Room> {
     let members = serde_json::to_string(&members)?;
     sqlx::query_as::<_, Room>("INSERT INTO rooms (room_type, room_name, members) VALUES (?, ?, ?)")
         .bind(room_type)
